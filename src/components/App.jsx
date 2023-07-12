@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
 import SearchBar from './SearchBar';
@@ -8,92 +8,79 @@ import { fetchImg } from 'service/fetchImg';
 import Loader from './Loader';
 import Button from './Button';
 
-export default class App extends Component {
-  state = {
-    gallery: [],
-    page: 1,
-    totalPages: 1,
-    error: null,
-    status: 'idle',
-    query: '',
-    showModal: false,
-    selectedImg: {},
-  };
+export default function App() {
+  const [gallery, setGallery] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [error, setError] = useState(null);
+  const [status, setStatus] = useState('');
+  const [query, setQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [selectedImg, setSelectedImg] = useState(null);
 
-  componentDidUpdate(_, prevState) {
-    const prevQuery = prevState.query;
-    const currentQuery = this.state.query;
-
-    if (prevQuery !== currentQuery) {
-      this.setState({ status: 'pending', page: 1 });
-      this.getData(1);
+  useEffect(() => {
+    if (!query) { 
+      return;
     }
-  }
-
-  getData = async page => {
-    try {
-      const data = await fetchImg(this.state.query, page);
-      if (!data.total) {
-        throw new Error(
-          'Sorry, there are no images matching your search query. Please try again.'
-        );
+    async function getData(page) {
+      try {
+        const data = await fetchImg(query, page);
+        if (!data.total) {
+          throw new Error(
+            'Sorry, there are no images matching your search query. Please try again.'
+          );
+        }
+        setGallery(data.hits);
+        setTotalPages(Math.ceil(data.totalHits / 12));
+        setStatus('resolved');
+      } catch (error) {
+        setError(error);
+        setStatus('rejected');
       }
-      this.setState({
-        status: 'resolved',
-        gallery: data.hits,
-        totalPages: Math.ceil(data.totalHits / 12),
-      });
-    } catch (error) {
-      this.setState({ error, status: 'rejected' });
     }
-  };
 
-  loadMore = async () => {
-    const currentPage = this.state.page + 1;
+    setPage(1);
+    setStatus('pending');
+    getData(1);
+  }, [query]);
+
+  async function loadMore() {
+    const currentPage = page + 1;
     try {
-      const data = await fetchImg(this.state.query, currentPage);
-      if (currentPage > this.state.totalPages) {
+      const data = await fetchImg(query, currentPage);
+      if (currentPage > totalPages) {
         return;
       }
-      this.setState(prev => ({
-        page: currentPage,
-        gallery: prev.gallery.concat(data.hits),
-      }));
+      setPage(currentPage);
+      setGallery(prev => prev.concat(data.hits));
     } catch (error) {
-      this.setState({ error, status: 'rejected' });
+      setError(error);
+      setStatus('rejected');
     }
-  };
-
-  handleSearch = ({ query }) => {
-    this.setState({ query });
-  };
-
-  toggleModal = image => {
-    this.setState(prevState => ({
-      showModal: !prevState.showModal,
-      selectedImg: image,
-    }));
-  };
-
-  render() {
-    const { status, page, totalPages, error, gallery, showModal, selectedImg } =
-      this.state;
-    return (
-      <div className="App">
-        <SearchBar onSubmit={this.handleSearch} />
-        {status === 'pending' && <Loader />}
-        {status === 'resolved' && (
-          <>
-            <ImageGallery gallery={gallery} onModalClick={this.toggleModal} />
-            {!(page === totalPages) && <Button onClick={this.loadMore} />}
-          </>
-        )}
-        {status === 'rejected' && <h1>{error.message}</h1>}
-        {showModal && (
-          <Modal img={selectedImg} toggleModal={this.toggleModal} />
-        )}
-        <ToastContainer autoClose={3000} theme="colored" />
-      </div>
-    );
   }
+
+  const handleSearch = query => {
+    setQuery(query);
+  };
+
+  const toggleModal = image => {
+    setSelectedImg(image);
+    setShowModal(prev => !prev);
+  };
+
+  return (
+    <div className="App">
+      <SearchBar onSubmit={handleSearch} />
+      {status === 'pending' && <Loader />}
+      {status === 'resolved' && (
+        <>
+          <ImageGallery gallery={gallery} onModalClick={toggleModal} />
+          {!(page === totalPages) && <Button onClick={loadMore} />}
+        </>
+      )}
+      {status === 'rejected' && <h1>{error.message}</h1>}
+      {showModal && <Modal img={selectedImg} toggleModal={toggleModal} />}
+      <ToastContainer autoClose={3000} theme="colored" />
+    </div>
+  );
 }
