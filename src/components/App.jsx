@@ -15,11 +15,10 @@ export default function App() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('');
   const [query, setQuery] = useState('');
-  const [showModal, setShowModal] = useState(false);
   const [selectedImg, setSelectedImg] = useState(null);
 
   useEffect(() => {
-    if (!query) { 
+    if (!query) {
       return;
     }
     async function getData(page) {
@@ -39,7 +38,6 @@ export default function App() {
       }
     }
 
-    setPage(1);
     setStatus('pending');
     getData(1);
   }, [query]);
@@ -52,7 +50,7 @@ export default function App() {
         return;
       }
       setPage(currentPage);
-      setGallery(prev => prev.concat(data.hits));
+      setGallery(prev => [...prev, ...data.hits]);
     } catch (error) {
       setError(error);
       setStatus('rejected');
@@ -61,11 +59,11 @@ export default function App() {
 
   const handleSearch = query => {
     setQuery(query);
+    setPage(1);
   };
 
   const toggleModal = image => {
     setSelectedImg(image);
-    setShowModal(prev => !prev);
   };
 
   return (
@@ -79,7 +77,7 @@ export default function App() {
         </>
       )}
       {status === 'rejected' && <h1>{error.message}</h1>}
-      {showModal && <Modal img={selectedImg} toggleModal={toggleModal} />}
+      {selectedImg && <Modal img={selectedImg} toggleModal={toggleModal} />}
       <ToastContainer autoClose={3000} theme="colored" />
     </div>
   );
