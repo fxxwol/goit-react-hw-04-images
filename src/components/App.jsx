@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
 import SearchBar from './SearchBar';
@@ -17,49 +17,44 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [selectedImg, setSelectedImg] = useState(null);
 
-  useEffect(() => {
-    if (!query) {
-      return;
-    }
-    async function getData(page) {
-      try {
-        const data = await fetchImg(query, page);
-        if (!data.total) {
-          throw new Error(
-            'Sorry, there are no images matching your search query. Please try again.'
-          );
-        }
-        setGallery(data.hits);
-        setTotalPages(Math.ceil(data.totalHits / 12));
-        setStatus('resolved');
-      } catch (error) {
-        setError(error);
-        setStatus('rejected');
-      }
-    }
-
-    setStatus('pending');
-    getData(1);
-  }, [query]);
-
-  async function loadMore() {
-    const currentPage = page + 1;
+  const getData = useCallback(async page => {
     try {
-      const data = await fetchImg(query, currentPage);
-      if (currentPage > totalPages) {
-        return;
+      const data = await fetchImg(query, page);
+      if (!data.total) {
+        throw new Error(
+          'Sorry, there are no images matching your search query. Please try again.'
+        );
       }
-      setPage(currentPage);
       setGallery(prev => [...prev, ...data.hits]);
+      setTotalPages(Math.ceil(data.totalHits / 12));
+      setPage(page)
+      setStatus('resolved');
     } catch (error) {
       setError(error);
       setStatus('rejected');
     }
+  }, [query]);
+
+  useEffect(() => {
+    if (!query) {
+      return;
+    }
+    setStatus('pending');
+    getData(1);
+  }, [getData, query]);
+
+   function loadMore() {
+    const currentPage = page + 1;
+    if (currentPage > totalPages) {
+      return;
+     }
+     getData(currentPage)
   }
 
   const handleSearch = query => {
     setQuery(query);
     setPage(1);
+    setGallery([]);
   };
 
   const toggleModal = image => {
